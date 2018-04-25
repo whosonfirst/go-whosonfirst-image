@@ -38,9 +38,9 @@ func FeatureToImage(f geojson.Feature) (image.Image, error) {
 		return nil, err
 	}
 
-	// defer os.Remove(tmpfile.Name())
+	defer os.Remove(tmpfile.Name())
 
-	log.Println("TMP", tmpfile.Name())
+	// log.Println("TMP", tmpfile.Name())
 
 	opts := svg.NewDefaultOptions()
 	opts.Writer = tmpfile
@@ -57,8 +57,6 @@ func FeatureToImage(f geojson.Feature) (image.Image, error) {
 		return nil, err
 	}
 
-	log.Println("VIEW BOX", icon.ViewBox)
-	
 	img := image.NewRGBA(image.Rect(0, 0, int(icon.ViewBox.W), int(icon.ViewBox.H)))
 	painter := rasterx.NewRGBAPainter(img)
 	raster := rasterx.NewDasher(int(icon.ViewBox.W), int(icon.ViewBox.H))
