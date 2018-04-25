@@ -20,7 +20,7 @@ It's early days, still.
 
 ```
 import (
-	"github.com/whosonfirst/go-whosonfirst-geojson-v2"
+	"github.com/whosonfirst/go-whosonfirst-geojson-v2/feature"
 	"github.com/whosonfirst/go-whosonfirst-image"
 	"image/png"
 	"os"
