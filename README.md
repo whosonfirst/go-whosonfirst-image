@@ -1,6 +1,6 @@
 # go-whosonfirst-image
 
-Use `go-whosonfirst-svg` and `oksvg` to render Who's On First features as raster images. This doesn't work yet... I mean it runs but still produces bunk images.
+Use `go-whosonfirst-svg` and `oksvg` to render Who's On First features as raster images.
 
 ## Install
 
@@ -14,6 +14,46 @@ All of this package's dependencies are bundled with the code in the `vendor` dir
 
 ## Important
 
-Probably too soon. Best to move along.
+It's early days, still.
+
+## Example
+
+```
+import (
+	"github.com/whosonfirst/go-whosonfirst-geojson-v2"
+	"github.com/whosonfirst/go-whosonfirst-image"
+	"image/png"
+	"os"
+)
+
+func main() {
+
+     	path := "/path/to/feature.geojson"
+	
+	f, _ := feature.LoadFeatureFromFile(path)
+	img, _ := image.FeatureToImage(f)
+
+	png.Encode(os.Stdout, img)
+}
+```
+
+_Error handling removed for brevity._
+
+## Tools
+
+### wof-feature2png
+
+```
+./bin/wof-feature2png /usr/local/data/whosonfirst-data-constituency-us/data/110/874/663/7/1108746637.geojson > 1108746637.png
+```
+
+Would produce:
+
+![](images/1108746637.png)
+
+As in: https://spelunker.whosonfirst.org/id/1108746637/
 
 ## See also
+
+* https://github.com/srwiley/oksvg
+* https://github.com/whosonfirst/go-whosonfirst-svg
