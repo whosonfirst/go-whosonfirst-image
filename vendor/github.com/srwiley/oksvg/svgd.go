@@ -385,6 +385,22 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 						icon.ViewBox.Y = cursor.points[1]
 						icon.ViewBox.W = cursor.points[2]
 						icon.ViewBox.H = cursor.points[3]
+					case "height":
+					     	h, err := strconv.ParseFloat(attr.Value, 64)
+
+						if err != nil {
+							return &icon, err
+						}
+						icon.ViewBox.H = h
+					case "width":
+
+					     	w, err := strconv.ParseFloat(attr.Value, 64)
+
+						if err != nil {
+							return &icon, err
+						}
+
+						icon.ViewBox.W = w
 					}
 				}
 			case "g": // G does nothing but push the style
