@@ -9,8 +9,8 @@ import (
 	"image/png"
 	"io"
 	"io/ioutil"
-	"log"
-	_ "os"
+	_ "log"
+	"os"
 )
 
 func FeatureToPNG(f geojson.Feature, fh io.Writer) error {
