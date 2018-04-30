@@ -1,8 +1,4 @@
 // Copyright 2017 The oksvg Authors. All rights reserved.
-// Use of this source code is governed by your choice of either the
-// FreeType License or the GNU General Public License version 2 (or
-// any later version), both of which can be found in the LICENSE file.
-//
 // created: 2/12/2017 by S.R.Wiley
 
 // svgd.go implements translation of an SVG2.0 path into a rasterx Path.
@@ -161,7 +157,6 @@ func (c *SvgCursor) addSeg(segString string) error {
 		c.inPath = true
 		c.Path.Start(fixed.Point26_6{c.pathStartX, c.pathStartY})
 		for i := 2; i < l-1; i += 2 {
-
 			c.Path.Line(fixed.Point26_6{
 				fixed.Int26_6(c.points[i] * 64),
 				fixed.Int26_6(c.points[i+1] * 64)})
@@ -295,7 +290,6 @@ func (c *SvgCursor) addSeg(segString string) error {
 					fixed.Int26_6(c.points[i] * 64), fixed.Int26_6(c.points[i+1] * 64)},
 				fixed.Point26_6{
 					fixed.Int26_6(c.points[i+2] * 64), fixed.Int26_6(c.points[i+3] * 64)})
-
 			c.lastKey = k
 			c.cntlPtX, c.cntlPtY = c.points[i], c.points[i+1]
 			c.placeX = c.points[i+2]
@@ -328,7 +322,7 @@ func (c *SvgCursor) addSeg(segString string) error {
 func (c *SvgCursor) ElipseAt(cx, cy, rx, ry float64) {
 	c.placeX, c.placeY = cx+rx, cy
 	c.points = c.points[0:0]
-	c.points = append(c.points, rx, ry, 0.0, 1.0, 1.0, c.placeX, c.placeY)
+	c.points = append(c.points, rx, ry, 0.0, 1.0, 0.0, c.placeX, c.placeY)
 	c.Path.Start(fixed.Point26_6{
 		fixed.Int26_6(c.placeX * 64),
 		fixed.Int26_6(c.placeY * 64)})
@@ -337,14 +331,14 @@ func (c *SvgCursor) ElipseAt(cx, cy, rx, ry float64) {
 
 func (c *SvgCursor) AddArcFromA(points []float64) {
 	cx, cy := FindEllipseCenter(&points[0], &points[1], points[2]*math.Pi/180, c.placeX,
-		c.placeY, points[5], points[6], points[4] == 0)
+		c.placeY, points[5], points[6], points[4] == 0, points[3] == 0)
 	c.AddArcFromAC(points, cx, cy)
 }
 
 func (c *SvgCursor) AddArcFromAC(points []float64, cx, cy float64) {
 	rotX := points[2] * math.Pi / 180 // Convert degress to radians
 	largeArc := points[3] != 0
-
+	sweep := points[4] != 0
 	startAngle := math.Atan2(c.placeY-cy, c.placeX-cx) - rotX
 	endAngle := math.Atan2(points[6]-cy, points[5]-cx) - rotX
 	deltaTheta := endAngle - startAngle
@@ -360,6 +354,13 @@ func (c *SvgCursor) AddArcFromAC(points []float64, cx, cy float64) {
 		} else {
 			deltaEta -= math.Pi * 2
 		}
+	}
+	// This check migth be needed if the center point of the elipse is
+	// at the midpoint of the start and end lines.
+	if deltaEta < 0 && sweep {
+		deltaEta += math.Pi * 2
+	} else if deltaEta >= 0 && !sweep {
+		deltaEta -= math.Pi * 2
 	}
 
 	// Round up to determine number of cubic splines to approximate bezier curve
@@ -420,7 +421,7 @@ func ellipsePointAt(a, b, sinTheta, cosTheta, eta, cx, cy float64) (px, py float
 // to reduce the problem to finding the center of a circle that includes the origin
 // and an arbitrary point. The center of the circle is then transformed
 // back to the original coordinates and returned.
-func FindEllipseCenter(ra, rb *float64, rotX, startX, startY, endX, endY float64, isNegSweep bool) (cx, cy float64) {
+func FindEllipseCenter(ra, rb *float64, rotX, startX, startY, endX, endY float64, sweep, smallArc bool) (cx, cy float64) {
 	cos, sin := math.Cos(rotX), math.Sin(rotX)
 
 	// Move origin to start point
@@ -450,7 +451,7 @@ func FindEllipseCenter(ra, rb *float64, rotX, startX, startY, endX, endY float64
 	}
 
 	//Sweep is determined by cross prod of mid vector and normal ray to center
-	if isNegSweep {
+	if (sweep && smallArc) || (!sweep && !smallArc) {
 		cx = midX + midY*hr
 		cy = midY - midX*hr
 	} else {

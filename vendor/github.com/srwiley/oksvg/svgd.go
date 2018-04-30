@@ -1,7 +1,4 @@
 // Copyright 2017 The oksvg Authors. All rights reserved.
-// Use of this source code is governed by your choice of either the
-// FreeType License or the GNU General Public License version 2 (or
-// any later version), both of which can be found in the LICENSE file.
 //
 // created: 2/12/2017 by S.R.Wiley
 // The oksvg package provides a partial implementation of the SVG 2.0 standard.
@@ -23,6 +20,7 @@ import (
 
 	"encoding/xml"
 	"errors"
+	//"image"
 	"image/color"
 	"log"
 
@@ -63,29 +61,26 @@ var DefaultStyle = PathStyle{1.0, 1.0, 2.0, 0.0, 4.0, nil, true, false, true,
 
 // Draws the compiled SVG icon into the GraphicContext.
 // All elements should be contained by the Bounds rectangle of the SvgIcon.
-func (s *SvgIcon) Draw(r *rasterx.Dasher, rgbPainter *rasterx.RGBAPainter, opacity float64) {
+func (s *SvgIcon) Draw(r *rasterx.Dasher, opacity float64) {
 	for _, svgp := range s.SVGPaths {
-		svgp.Draw(r, rgbPainter, opacity)
+		svgp.Draw(r, opacity)
 	}
 }
 
 // Draw the compiled SVG icon into the GraphicContext.
 // All elements should be contained by the Bounds rectangle of the SvgIcon.
-func (svgp *SvgPath) Draw(r *rasterx.Dasher, rgbPainter *rasterx.RGBAPainter, opacity float64) {
+func (svgp *SvgPath) Draw(r *rasterx.Dasher, opacity float64) {
 	if svgp.DoFill {
 		r.Clear()
 		ar, g, b, _ := svgp.FillColor.RGBA()
-		rgbPainter.SetColor(color.NRGBA{uint8(ar), uint8(g), uint8(b), uint8(svgp.FillOpacity * opacity * 0xFF)})
-		// rf will directly call the filler methods for path commands
-		rf := &r.Filler
 
-		if svgp.UseNonZeroWinding == false {
-			rf.UseNonZeroWinding = false
-		}
+		rf := &r.Filler
+		rf.SetColor(color.NRGBA{uint8(ar), uint8(g), uint8(b), uint8(svgp.FillOpacity * opacity * 0xFF)})
+		rf.SetWinding(svgp.UseNonZeroWinding)
 		svgp.Path.AddTo(rf)
-		rf.Rasterize(rgbPainter)
+		rf.Draw()
 		// default is true
-		rf.UseNonZeroWinding = true
+		r.SetWinding(true)
 	}
 	if svgp.DoLine {
 		r.Clear()
@@ -106,9 +101,9 @@ func (svgp *SvgPath) Draw(r *rasterx.Dasher, rgbPainter *rasterx.RGBAPainter, op
 			lineGap, svgp.LineJoin, svgp.Dash, svgp.DashOffset)
 		svgp.Path.AddTo(r)
 		ar, g, b, _ := svgp.LineColor.RGBA()
-		rgbPainter.SetColor(color.NRGBA{uint8(ar), uint8(g), uint8(b),
+		r.SetColor(color.NRGBA{uint8(ar), uint8(g), uint8(b),
 			uint8(svgp.LineOpacity * opacity * 0xFF)})
-		r.Rasterize(rgbPainter)
+		r.Draw()
 	}
 }
 
@@ -141,6 +136,10 @@ func ParseSVGColorNum(colorStr string) (r, g, b uint8, err error) {
 func ParseSVGColor(colorStr string) (color.Color, error) {
 	//_, _, _, a := curColor.RGBA()
 	v := strings.ToLower(colorStr)
+	if strings.HasPrefix(v, "url") { // we are not handling urls
+		// and gradients and stuff at this point
+		return color.NRGBA{0, 0, 0, 255}, nil
+	}
 	switch v {
 	case "none":
 		// nil signals that the function (fill or stroke) is off;
@@ -168,6 +167,7 @@ func ParseSVGColor(colorStr string) (color.Color, error) {
 				return color.NRGBA{0, 0, 0, 0}, err
 			}
 		}
+
 		return color.NRGBA{cvals[0], cvals[1], cvals[2], 0xFF}, nil
 	}
 	if colorStr[0] == '#' {
@@ -182,13 +182,16 @@ func ParseSVGColor(colorStr string) (color.Color, error) {
 
 func parseColorValue(v string) (uint8, error) {
 	if v[len(v)-1] == '%' {
-		n, err := strconv.Atoi(v[:len(v)-1])
+		n, err := strconv.Atoi(strings.TrimSpace(v[:len(v)-1]))
 		if err != nil {
 			return 0, err
 		}
 		return uint8(n * 0xFF / 100), nil
 	}
-	n, err := strconv.Atoi(v)
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if n > 255 {
+		n = 255
+	}
 	return uint8(n), err
 }
 
@@ -212,6 +215,7 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 		kv := strings.Split(pair, ":")
 		if len(kv) >= 2 {
 			k := strings.ToLower(kv[0])
+			k = strings.TrimSpace(k)
 			v := strings.Trim(kv[1], " ")
 			switch k {
 			case "fill":
@@ -219,7 +223,6 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 				if errc != nil {
 					return stack, errc
 				}
-				//fmt.Println("do fill ", col)
 				if curStyle.DoFill = col != nil; curStyle.DoFill {
 					curStyle.FillColor = col.(color.NRGBA)
 				}
@@ -307,7 +310,7 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 					dashes := strings.Split(v, ",")
 					dList := make([]float64, len(dashes))
 					for i, dstr := range dashes {
-						d, err := strconv.ParseFloat(strings.Trim(dstr, " "), 64)
+						d, err := strconv.ParseFloat(strings.TrimSpace(dstr), 64)
 						if err != nil {
 							return stack, err
 						}
@@ -372,8 +375,14 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 			if err != nil {
 				return &icon, err
 			}
+			//fmt.Println("com", se.Name.Local)
 			switch se.Name.Local {
 			case "svg":
+				icon.ViewBox.X = 0
+				icon.ViewBox.Y = 0
+				icon.ViewBox.W = 0
+				icon.ViewBox.H = 0
+				var width, height float64
 				for _, attr := range se.Attr {
 					switch attr.Name.Local {
 					case "viewBox":
@@ -385,7 +394,19 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 						icon.ViewBox.Y = cursor.points[1]
 						icon.ViewBox.W = cursor.points[2]
 						icon.ViewBox.H = cursor.points[3]
+					case "width":
+						wn := strings.TrimSuffix(attr.Value, "cm")
+						width, err = strconv.ParseFloat(wn, 64)
+					case "height":
+						hn := strings.TrimSuffix(attr.Value, "cm")
+						height, err = strconv.ParseFloat(hn, 64)
 					}
+				}
+				if icon.ViewBox.W == 0 {
+					icon.ViewBox.W = width
+				}
+				if icon.ViewBox.H == 0 {
+					icon.ViewBox.H = height
 				}
 			case "g": // G does nothing but push the style
 			case "rect":
