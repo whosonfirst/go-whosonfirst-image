@@ -11,12 +11,15 @@ import (
 )
 
 type (
+	ColorFunc func(x, y int) color.Color
+
 	Scanner interface {
 		Start(a fixed.Point26_6)
 		Line(b fixed.Point26_6)
 		Draw()
+		GetPathExtent() fixed.Rectangle26_6
 		SetBounds(w, h int)
-		SetColor(color.Color)
+		SetColor(color interface{})
 		SetWinding(useNonZeroWinding bool)
 		Clear()
 	}
@@ -71,27 +74,6 @@ func devSquaredFx(ax, ay, bx, by, cx, cy fixed.Int26_6) fixed.Int26_6 {
 	devy := ay - 2*by + cy
 	return (devx*devx + devy*devy) >> 6
 }
-
-//func QuadToFixed(ax, ay, bx, by, cx, cy fixed.Int26_6, LineTo func(dx, dy fixed.Int26_6)) {
-//	const tshift = 12
-//	devsq := devSquaredFx(ax, ay, bx, by, cx, cy)
-//	if devsq >=  fixed.Int26_6{64/3} {
-//		const tol = 3
-//		n := 64 + fixed.Int26_6{math.Sqrt(math.Sqrt(tol*float64(devsq)))*64}
-//		t, nInv := fixed.Int26_6{0}, fixed.Int26_6(float32(1<<tshift)/float32(n))<<6
-//		for i := 0; i < n-1; i++ {
-//			t += nInv
-//			mt := 1 - t
-//			t1 := mt * mt
-//			t2 := mt * t * 2
-//			t3 := t * t
-//			LineTo(
-//				ax*t1+bx*t2+cx*t3,
-//				ay*t1+by*t2+cy*t3)
-//		}
-//	}
-//	LineTo(cx, cy)
-//}
 
 // QuadTo flattens the quadratic Bezier curve into lines through the LineTo func
 // This functions is adapted from the version found in
@@ -150,7 +132,7 @@ func CubeTo(ax, ay, bx, by, cx, cy, dx, dy float32, LineTo func(ex, ey float32))
 // devSquared returns a measure of how curvy the sequence (ax, ay) to (bx, by)
 // to (cx, cy) is. It determines how many line segments will approximate a
 // Bézier curve segment. This functions is copied from the version found in
-// golang.org/x/image/vector
+// golang.org/x/image/vector as are the below comments.
 //
 // http://lists.nongnu.org/archive/html/freetype-devel/2016-08/msg00080.html
 // gives the rationale for this evenly spaced heuristic instead of a recursive
@@ -180,7 +162,7 @@ func (r *Filler) QuadBezierF(sgm Rasterx, b, c fixed.Point26_6) {
 		float32(b.X), float32(b.Y),
 		float32(c.X), float32(c.Y),
 		func(dx, dy float32) {
-			sgm.Line(fixed.Point26_6{fixed.Int26_6(dx), fixed.Int26_6(dy)})
+			sgm.lineF(fixed.Point26_6{fixed.Int26_6(dx), fixed.Int26_6(dy)})
 		})
 
 }
@@ -220,8 +202,14 @@ func (r *Filler) CubeBezierF(sgm Rasterx, b, c, d fixed.Point26_6) {
 		float32(c.X), float32(c.Y),
 		float32(d.X), float32(d.Y),
 		func(ex, ey float32) {
-			sgm.Line(fixed.Point26_6{fixed.Int26_6(ex), fixed.Int26_6(ey)})
+			sgm.lineF(fixed.Point26_6{fixed.Int26_6(ex), fixed.Int26_6(ey)})
 		})
+}
+
+func (r *Filler) Clear() {
+	r.a = fixed.Point26_6{}
+	r.first = r.a
+	r.Scanner.Clear()
 }
 
 // SetBounds sets the maximum width and height of the rasterized image and
