@@ -4,12 +4,11 @@
 //_
 // Implements SVG style matrix transformations.
 // https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/transform
-package oksvg
+package rasterx
 
 import (
 	"math"
 
-	"github.com/srwiley/rasterx"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -49,6 +48,7 @@ func (m *matrix3) Invert() *matrix3 {
 		}
 	}
 	deteriminate := m[0]*cofact[0] + m[1]*cofact[1] + m[2]*cofact[2]
+
 	// transpose cofact
 	for i := 0; i < 2; i++ {
 		for j := i + 1; j < 3; j++ {
@@ -143,7 +143,7 @@ func (a Matrix2D) Rotate(theta float64) Matrix2D {
 }
 
 type MatrixAdder struct {
-	rasterx.Adder
+	Adder
 	M Matrix2D
 }
 
