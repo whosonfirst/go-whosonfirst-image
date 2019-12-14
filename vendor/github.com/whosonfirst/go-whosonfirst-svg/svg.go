@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	_ "errors"
 	"fmt"
-	"github.com/fapian/geojson2svg/pkg/geojson2svg"
+	geojson_svg "github.com/whosonfirst/go-geojson-svg"
 	"github.com/whosonfirst/go-whosonfirst-geojson-v2"
 	"github.com/whosonfirst/go-whosonfirst-geojson-v2/properties/geometry"
 	"github.com/whosonfirst/go-whosonfirst-spr/util"
@@ -20,6 +20,7 @@ type StyleFunction func(f geojson.Feature) (map[string]string, error)
 type Options struct {
 	Width         float64
 	Height        float64
+	Mercator      bool
 	Writer        io.Writer
 	StyleFunction StyleFunction
 }
@@ -32,6 +33,7 @@ func NewDefaultOptions() *Options {
 		Width:         1024.0,
 		Height:        1024.0,
 		Writer:        os.Stdout,
+		Mercator:      false,
 		StyleFunction: f,
 	}
 
@@ -126,7 +128,8 @@ func FeatureToSVG(f geojson.Feature, opts *Options) error {
 		return err
 	}
 
-	s := geojson2svg.New()
+	s := geojson_svg.New()
+	s.Mercator = opts.Mercator
 
 	err = s.AddGeometry(geom)
 
@@ -221,7 +224,7 @@ func FeatureToSVG(f geojson.Feature, opts *Options) error {
 		attrs[ns] = uri
 	}
 
-	s_opts := geojson2svg.WithAttributes(attrs)
+	s_opts := geojson_svg.WithAttributes(attrs)
 
 	rsp := s.Draw(w, h, s_opts)
 	_, err = opts.Writer.Write([]byte(rsp))
