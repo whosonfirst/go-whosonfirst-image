@@ -2,10 +2,9 @@ package main
 
 import (
 	"flag"
-	"github.com/whosonfirst/go-whosonfirst-geojson-v2/feature"
 	"github.com/whosonfirst/go-whosonfirst-image"
 	"github.com/whosonfirst/go-whosonfirst-svg"
-	"github.com/whosonfirst/warning"
+	"io"
 	"log"
 	"os"
 )
@@ -42,13 +41,21 @@ func main() {
 
 	for _, path := range flag.Args() {
 
-		f, err := feature.LoadFeatureFromFile(path)
+		r, err := os.Open(path)
 
-		if err != nil && !warning.IsWarning(err) {
+		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = image.FeatureToPNG(f, opts)
+		defer r.Close()
+
+		body, err := io.ReadAll(r)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = image.FeatureToPNG(body, opts)
 
 		if err != nil {
 			log.Fatal(err)
